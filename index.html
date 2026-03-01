@@ -1,49 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Credit App</title>
+  <title>Credit Manager</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+
+    .balance {
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .paid { color: green; }
+    .credit { color: red; }
+
+    .logout {
+      background: red;
+      margin-top: 20px;
+    }
+
+    #dashboard { display: none; }
+  </style>
 </head>
+
 <body>
 
-<h2>Credit App</h2>
+<div class="container">
 
-<!-- LOGIN SECTION -->
-<div id="loginSection">
-  <input type="email" id="email" placeholder="Email"><br><br>
-  <input type="password" id="password" placeholder="Password (min 6 char)"><br><br>
-  <button id="registerBtn">Register</button>
-  <button id="loginBtn">Login</button>
-  <p id="message"></p>
-</div>
+  <div id="auth">
+    <h2>Login / Register</h2>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="register()">Register</button>
+    <button onclick="login()">Login</button>
+  </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard" style="display:none;">
+  <div id="dashboard">
+    <h2>Credit Manager</h2>
 
-  <h3>Add Customer</h3>
-  <input type="text" id="custName" placeholder="Customer Name">
-  <input type="text" id="custPhone" placeholder="Phone">
-  <button id="addCustomerBtn">Add Customer</button>
+    <input type="text" id="customerName" placeholder="Customer Name">
+    <button onclick="addCustomer()">Add Customer</button>
 
-  <hr>
+    <ul id="customerList"></ul>
 
-  <h3>Search Customer</h3>
-  <input type="text" id="searchInput" placeholder="Search by Name">
-  <button id="searchBtn">Search</button>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
 
-  <hr>
-
-  <h3>Bulk Payment (All Customers)</h3>
-  <input type="number" id="bulkAmount" placeholder="Amount">
-  <button id="bulkCreditBtn">Add Credit to All</button>
-  <button id="bulkDebitBtn">Add Paid to All</button>
-
-  <hr>
-
-  <h3>Customer List</h3>
-  <ul id="customerList"></ul>
-
-  <button id="logoutBtn">Logout</button>
 </div>
 
 <script type="module">
@@ -52,9 +103,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut,
-  onAuthStateChanged 
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import { 
@@ -66,13 +117,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
-  authDomain: "credit-sass.firebaseapp.com",
-  databaseURL: "https://credit-sass-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "credit-sass",
-  storageBucket: "credit-sass.firebasestorage.app",
-  messagingSenderId: "820767773664",
-  appId: "1:820767773664:web:4eb034cdaaea029fc95185"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_BUCKET",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -81,66 +132,62 @@ const database = getDatabase(app);
 
 let currentUser = null;
 
-/* ---------- AUTH ---------- */
-
-registerBtn.onclick = () => {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+window.register = function() {
+  const email = email.value;
+  const password = password.value;
 
   createUserWithEmailAndPassword(auth, email, password)
-    .catch(error => alert(error.message));
-};
+    .then(() => alert("Registered Successfully"))
+    .catch(err => alert(err.message));
+}
 
-loginBtn.onclick = () => {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+window.login = function() {
+  const email = email.value;
+  const password = password.value;
 
   signInWithEmailAndPassword(auth, email, password)
-    .catch(error => alert(error.message));
-};
+    .catch(err => alert(err.message));
+}
 
-logoutBtn.onclick = () => signOut(auth);
+window.logout = function() {
+  signOut(auth);
+}
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    loginSection.style.display = "none";
+    auth.style.display = "none";
     dashboard.style.display = "block";
     loadCustomers();
   } else {
-    loginSection.style.display = "block";
+    auth.style.display = "block";
     dashboard.style.display = "none";
   }
 });
 
-/* ---------- ADD CUSTOMER ---------- */
-
-addCustomerBtn.onclick = () => {
-  const name = custName.value;
-  const phone = custPhone.value;
-
-  if (!name) return alert("Name required");
+window.addCustomer = function() {
+  const name = customerName.value;
+  if (!name) return alert("Enter Name");
 
   push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
     name: name,
-    phone: phone,
     totalCredit: 0,
     totalPaid: 0,
     lastPaymentDate: "-"
   });
 
-  custName.value = "";
-  custPhone.value = "";
-};
-
-/* ---------- LOAD CUSTOMERS ---------- */
+  customerName.value = "";
+}
 
 function loadCustomers() {
+
   const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
 
   onValue(customerRef, (snapshot) => {
+
     const data = snapshot.val();
-    customerList.innerHTML = "";
+    const list = document.getElementById("customerList");
+    list.innerHTML = "";
 
     if (!data) return;
 
@@ -148,101 +195,54 @@ function loadCustomers() {
       const c = data[id];
       const balance = (c.totalCredit || 0) - (c.totalPaid || 0);
 
-      const li = document.createElement("li");
+      const li = document.createElement("div");
+      li.className = "card";
+
       li.innerHTML = `
-        <b>${c.name}</b> |
-        Balance: ₹${balance} |
-        Last Payment: ${c.lastPaymentDate}
-        <br>
-        <input type="number" id="amt_${id}" placeholder="Amount">
-        <button onclick="addCredit('${id}')">Credit</button>
-        <button onclick="addDebit('${id}')">Paid</button>
-        <hr>
+        <h3>${c.name}</h3>
+        <div class="balance">Balance: ₹${balance}</div>
+        <div>Last Payment: ${c.lastPaymentDate}</div>
+
+        <input type="number" placeholder="Amount" id="amt_${id}">
+        <button onclick="addCredit('${id}')">Add Credit</button>
+        <button onclick="addPaid('${id}')">Add Payment</button>
       `;
-      customerList.appendChild(li);
+
+      list.appendChild(li);
     }
+
   });
 }
 
-/* ---------- INDIVIDUAL PAYMENT ---------- */
-
 window.addCredit = function(id) {
   const amount = parseInt(document.getElementById("amt_" + id).value);
-  if (!amount) return alert("Enter amount");
+  if (!amount) return alert("Enter Amount");
 
-  const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
 
-  onValue(refPath, (snap) => {
-    const c = snap.val();
-    update(refPath, {
+  onValue(customerRef, (snapshot) => {
+    const c = snapshot.val();
+    update(customerRef, {
       totalCredit: (c.totalCredit || 0) + amount,
       lastPaymentDate: new Date().toLocaleDateString()
     });
   }, { onlyOnce: true });
-};
+}
 
-window.addDebit = function(id) {
+window.addPaid = function(id) {
   const amount = parseInt(document.getElementById("amt_" + id).value);
-  if (!amount) return alert("Enter amount");
+  if (!amount) return alert("Enter Amount");
 
-  const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
 
-  onValue(refPath, (snap) => {
-    const c = snap.val();
-    update(refPath, {
+  onValue(customerRef, (snapshot) => {
+    const c = snapshot.val();
+    update(customerRef, {
       totalPaid: (c.totalPaid || 0) + amount,
       lastPaymentDate: new Date().toLocaleDateString()
     });
   }, { onlyOnce: true });
-};
-
-/* ---------- BULK PAYMENT ---------- */
-
-bulkCreditBtn.onclick = () => bulkUpdate("credit");
-bulkDebitBtn.onclick = () => bulkUpdate("debit");
-
-function bulkUpdate(type) {
-  const amount = parseInt(bulkAmount.value);
-  if (!amount) return alert("Enter bulk amount");
-
-  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
-
-  onValue(customerRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-
-    for (let id in data) {
-      const c = data[id];
-      const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
-
-      if (type === "credit") {
-        update(refPath, {
-          totalCredit: (c.totalCredit || 0) + amount,
-          lastPaymentDate: new Date().toLocaleDateString()
-        });
-      } else {
-        update(refPath, {
-          totalPaid: (c.totalPaid || 0) + amount,
-          lastPaymentDate: new Date().toLocaleDateString()
-        });
-      }
-    }
-
-    bulkAmount.value = "";
-  }, { onlyOnce: true });
 }
-
-/* ---------- SEARCH ---------- */
-
-searchBtn.onclick = () => {
-  const text = searchInput.value.toLowerCase();
-  const items = customerList.getElementsByTagName("li");
-
-  for (let i = 0; i < items.length; i++) {
-    const name = items[i].innerText.toLowerCase();
-    items[i].style.display = name.includes(text) ? "" : "none";
-  }
-};
 
 </script>
 
