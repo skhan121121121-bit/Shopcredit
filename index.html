@@ -1,71 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Credit Sass</title>
+  <title>Credit Sass Advanced</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #f2f4f8;
-    }
-
-    .container {
-      max-width: 500px;
-      margin: auto;
-      padding: 20px;
-    }
-
-    h2 {
-      text-align: center;
-    }
-
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      border: none;
-      background: #4CAF50;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    .card {
-      background: white;
-      padding: 15px;
-      margin-top: 15px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    .balance {
-      font-size: 18px;
-      font-weight: bold;
-      margin: 5px 0;
-    }
-
-    .logout {
-      background: red;
-      margin-top: 20px;
-    }
-
-    #dashboard { display: none; }
+    body { margin:0; font-family: Arial; background:#f2f4f8; }
+    .container { max-width:600px; margin:auto; padding:20px; }
+    h2 { text-align:center; }
+    input, button { width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid #ccc; }
+    button { border:none; background:#4CAF50; color:white; font-weight:bold; cursor:pointer; }
+    button:hover { opacity:0.9; }
+    .card { background:white; padding:15px; margin-top:15px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+    .balance { font-size:18px; font-weight:bold; margin:5px 0; }
+    .logout { background:red; margin-top:20px; }
+    #dashboard { display:none; }
+    .top-buttons button { width:48%; display:inline-block; margin-right:2%; }
   </style>
 </head>
-
 <body>
-
 <div class="container">
 
   <!-- LOGIN / REGISTER -->
@@ -79,7 +31,7 @@
 
   <!-- DASHBOARD -->
   <div id="dashboard">
-    <h2>Credit Sass</h2>
+    <h2>Credit Sass Advanced</h2>
 
     <input type="text" id="customerName" placeholder="Customer Name">
     <button onclick="addCustomer()">Add Customer</button>
@@ -88,8 +40,15 @@
     <button onclick="searchCustomer()">Search</button>
 
     <input type="number" id="bulkAmount" placeholder="Bulk Amount">
-    <button onclick="bulkCredit()">Add Credit to All</button>
-    <button onclick="bulkPaid()">Add Paid to All</button>
+    <div class="top-buttons">
+      <button onclick="bulkCredit()">Add Credit All</button>
+      <button onclick="bulkPaid()">Add Paid All</button>
+    </div>
+
+    <button onclick="downloadCSV()">Export CSV</button>
+
+    <h3>Summary</h3>
+    <div id="summary"></div>
 
     <div id="customerList"></div>
 
@@ -99,23 +58,12 @@
 </div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-import { 
-  getDatabase, 
-  ref, 
-  push, 
-  onValue,
-  update
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 /* ---------- FIREBASE CONFIG ---------- */
 const firebaseConfig = {
@@ -132,28 +80,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
-
 let currentUser = null;
 
-/* ---------- AUTH FUNCTIONS ---------- */
+/* ---------- AUTH ---------- */
 window.register = function() {
   createUserWithEmailAndPassword(auth, email.value, password.value)
     .then(() => alert("Registered Successfully"))
     .catch(err => alert(err.message));
 }
-
 window.login = function() {
   signInWithEmailAndPassword(auth, email.value, password.value)
     .catch(err => alert(err.message));
 }
+window.logout = function() { signOut(auth); }
 
-window.logout = function() {
-  signOut(auth);
-}
-
-/* ---------- AUTH STATE ---------- */
 onAuthStateChanged(auth, (user) => {
-  if (user) {
+  if(user){
     currentUser = user;
     authSection.style.display = "none";
     dashboard.style.display = "block";
@@ -164,132 +106,139 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-/* ---------- ADD CUSTOMER ---------- */
-window.addCustomer = function() {
-  if (!customerName.value) return alert("Enter Customer Name");
-
-  push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
+/* ---------- CUSTOMER ---------- */
+window.addCustomer = function(){
+  if(!customerName.value) return alert("Enter Customer Name");
+  push(ref(database,'Users/'+currentUser.uid+'/Customers'),{
     name: customerName.value,
-    totalCredit: 0,
-    totalPaid: 0,
-    lastPaymentDate: "-"
+    totalCredit:0, totalPaid:0, lastPaymentDate:"-"
   });
-
-  customerName.value = "";
+  customerName.value="";
 }
 
 /* ---------- LOAD CUSTOMERS ---------- */
-function loadCustomers() {
-  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+function loadCustomers(){
+  const customerRef = ref(database,'Users/'+currentUser.uid+'/Customers');
+  onValue(customerRef,(snap)=>{
+    const data = snap.val();
+    customerList.innerHTML="";
+    summary.innerHTML="";
+    if(!data) return;
 
-  onValue(customerRef, (snapshot) => {
-    const data = snapshot.val();
-    customerList.innerHTML = "";
+    let totalCredit=0,totalPaid=0,balance=0;
 
-    if (!data) return;
-
-    for (let id in data) {
+    for(let id in data){
       const c = data[id];
-      const balance = (c.totalCredit || 0) - (c.totalPaid || 0);
+      const bal = (c.totalCredit||0)-(c.totalPaid||0);
+      totalCredit += (c.totalCredit||0);
+      totalPaid += (c.totalPaid||0);
+      balance += bal;
 
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
+      const card=document.createElement("div");
+      card.className="card";
+      const whatsappLink = `https://wa.me/?text=Hello ${c.name}, your pending balance is ₹${bal}`;
+      card.innerHTML=`
         <h3>${c.name}</h3>
-        <div class="balance">Balance: ₹${balance}</div>
+        <div class="balance">Balance: ₹${bal}</div>
         <div>Last Payment: ${c.lastPaymentDate}</div>
-
         <input type="number" placeholder="Amount" id="amt_${id}">
-        <button onclick="addCredit('${id}')">Add Credit</button>
-        <button onclick="addPaid('${id}')">Add Payment</button>
+        <div class="top-buttons">
+          <button onclick="addCredit('${id}')">Add Credit</button>
+          <button onclick="addPaid('${id}')">Add Paid</button>
+          <button onclick="sendWhatsApp('${id}')">WhatsApp Reminder</button>
+        </div>
       `;
       customerList.appendChild(card);
     }
+
+    summary.innerHTML=`Total Credit: ₹${totalCredit} | Total Paid: ₹${totalPaid} | Total Balance: ₹${balance}`;
   });
 }
 
-/* ---------- INDIVIDUAL CREDIT / PAID ---------- */
-window.addCredit = function(id) {
-  const amount = parseInt(document.getElementById("amt_" + id).value);
-  if (!amount) return alert("Enter Amount");
-
-  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
-
-  onValue(custRef, (snap) => {
+/* ---------- INDIVIDUAL PAYMENT ---------- */
+window.addCredit = function(id){
+  const amt=parseInt(document.getElementById("amt_"+id).value);
+  if(!amt) return alert("Enter Amount");
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
+  onValue(custRef,(snap)=>{
     const c = snap.val();
-    update(custRef, {
-      totalCredit: (c.totalCredit || 0) + amount,
-      lastPaymentDate: new Date().toLocaleDateString()
-    });
-  }, { onlyOnce: true });
+    update(custRef,{ totalCredit:(c.totalCredit||0)+amt, lastPaymentDate:new Date().toLocaleDateString() });
+  },{onlyOnce:true});
 }
 
-window.addPaid = function(id) {
-  const amount = parseInt(document.getElementById("amt_" + id).value);
-  if (!amount) return alert("Enter Amount");
-
-  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
-
-  onValue(custRef, (snap) => {
+window.addPaid = function(id){
+  const amt=parseInt(document.getElementById("amt_"+id).value);
+  if(!amt) return alert("Enter Amount");
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
+  onValue(custRef,(snap)=>{
     const c = snap.val();
-    update(custRef, {
-      totalPaid: (c.totalPaid || 0) + amount,
-      lastPaymentDate: new Date().toLocaleDateString()
-    });
-  }, { onlyOnce: true });
-}
-
-/* ---------- SEARCH CUSTOMER ---------- */
-window.searchCustomer = function() {
-  const searchText = searchInput.value.toLowerCase();
-  const items = customerList.getElementsByClassName("card");
-
-  for (let i = 0; i < items.length; i++) {
-    const name = items[i].querySelector("h3").innerText.toLowerCase();
-    items[i].style.display = name.includes(searchText) ? "" : "none";
-  }
+    update(custRef,{ totalPaid:(c.totalPaid||0)+amt, lastPaymentDate:new Date().toLocaleDateString() });
+  },{onlyOnce:true});
 }
 
 /* ---------- BULK PAYMENT ---------- */
-window.bulkCredit = function() {
-  const amt = parseInt(bulkAmount.value);
-  if (!amt) return alert("Enter Bulk Amount");
-
-  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
-
-  onValue(custRef, (snap) => {
-    const data = snap.val();
-    for (let id in data) {
-      update(ref(database, 'Users/' + currentUser.uid + '/Customers/' + id), {
-        totalCredit: (data[id].totalCredit || 0) + amt,
-        lastPaymentDate: new Date().toLocaleDateString()
-      });
-    }
-  }, { onlyOnce: true });
-
-  bulkAmount.value = "";
+window.bulkCredit = function(){
+  const amt=parseInt(bulkAmount.value); if(!amt) return alert("Enter Bulk Amount");
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers');
+  onValue(custRef,(snap)=>{
+    const data=snap.val();
+    for(let id in data){ update(ref(database,'Users/'+currentUser.uid+'/Customers/'+id),
+      { totalCredit:(data[id].totalCredit||0)+amt, lastPaymentDate:new Date().toLocaleDateString() }); }
+  },{onlyOnce:true});
+  bulkAmount.value="";
 }
 
-window.bulkPaid = function() {
-  const amt = parseInt(bulkAmount.value);
-  if (!amt) return alert("Enter Bulk Amount");
+window.bulkPaid = function(){
+  const amt=parseInt(bulkAmount.value); if(!amt) return alert("Enter Bulk Amount");
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers');
+  onValue(custRef,(snap)=>{
+    const data=snap.val();
+    for(let id in data){ update(ref(database,'Users/'+currentUser.uid+'/Customers/'+id),
+      { totalPaid:(data[id].totalPaid||0)+amt, lastPaymentDate:new Date().toLocaleDateString() }); }
+  },{onlyOnce:true});
+  bulkAmount.value="";
+}
 
-  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+/* ---------- SEARCH ---------- */
+window.searchCustomer = function(){
+  const text=searchInput.value.toLowerCase();
+  const items=customerList.getElementsByClassName("card");
+  for(let i=0;i<items.length;i++){
+    const name=items[i].querySelector("h3").innerText.toLowerCase();
+    items[i].style.display=name.includes(text)?"":"none";
+  }
+}
 
-  onValue(custRef, (snap) => {
-    const data = snap.val();
-    for (let id in data) {
-      update(ref(database, 'Users/' + currentUser.uid + '/Customers/' + id), {
-        totalPaid: (data[id].totalPaid || 0) + amt,
-        lastPaymentDate: new Date().toLocaleDateString()
-      });
+/* ---------- WhatsApp Reminder ---------- */
+window.sendWhatsApp=function(id){
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
+  onValue(custRef,(snap)=>{
+    const c=snap.val();
+    const bal=(c.totalCredit||0)-(c.totalPaid||0);
+    const msg=`Hello ${c.name}, your pending balance is ₹${bal}`;
+    const url=`https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url,"_blank");
+  },{onlyOnce:true});
+}
+
+/* ---------- CSV EXPORT ---------- */
+window.downloadCSV=function(){
+  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers');
+  onValue(custRef,(snap)=>{
+    const data=snap.val(); if(!data) return;
+    let csv="Name,Total Credit,Total Paid,Balance,Last Payment Date\n";
+    for(let id in data){
+      const c=data[id]; const bal=(c.totalCredit||0)-(c.totalPaid||0);
+      csv+=`${c.name},${c.totalCredit||0},${c.totalPaid||0},${bal},${c.lastPaymentDate}\n`;
     }
-  }, { onlyOnce: true });
-
-  bulkAmount.value = "";
+    const blob=new Blob([csv],{type:'text/csv'});
+    const link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download="customers.csv";
+    link.click();
+  },{onlyOnce:true});
 }
 
 </script>
-
 </body>
 </html>
