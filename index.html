@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Credit App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<h2>Credit App Login</h2>
+
+<input type="email" id="email" placeholder="Email"><br><br>
+<input type="password" id="password" placeholder="Password (min 6 char)"><br><br>
+
+<button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+
+<p id="message"></p>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  import { getDatabase, ref, set }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
+    authDomain: "credit-sass.firebaseapp.com",
+    databaseURL: "https://credit-sass-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "credit-sass",
+    storageBucket: "credit-sass.firebasestorage.app",
+    messagingSenderId: "820767773664",
+    appId: "1:820767773664:web:4eb034cdaaea029fc95185"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const database = getDatabase(app);
+
+  window.register = function () {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    createUserWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        document.getElementById("message").innerText = "Registered Successfully!";
+
+        // Save user basic info in database
+        const user = userCredential.user;
+        set(ref(database, 'Users/' + user.uid), {
+          email: user.email
+        });
+
+      })
+      .catch((error) => {
+        document.getElementById("message").innerText = error.message;
+      });
+  }
+
+  window.login = function () {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        document.getElementById("message").innerText = "Login Success!";
+      })
+      .catch((error) => {
+        document.getElementById("message").innerText = error.message;
+      });
+  }
+</script>
+
+</body>
+</html>
