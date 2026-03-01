@@ -21,7 +21,7 @@
       text-align: center;
     }
 
-    input {
+    input, button {
       width: 100%;
       padding: 10px;
       margin-top: 10px;
@@ -30,10 +30,6 @@
     }
 
     button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 8px;
       border: none;
       background: #4CAF50;
       color: white;
@@ -72,6 +68,7 @@
 
 <div class="container">
 
+  <!-- LOGIN / REGISTER -->
   <div id="authSection">
     <h2>Login / Register</h2>
     <input type="email" id="email" placeholder="Email">
@@ -80,11 +77,19 @@
     <button onclick="login()">Login</button>
   </div>
 
+  <!-- DASHBOARD -->
   <div id="dashboard">
     <h2>Credit Sass</h2>
 
     <input type="text" id="customerName" placeholder="Customer Name">
     <button onclick="addCustomer()">Add Customer</button>
+
+    <input type="text" id="searchInput" placeholder="Search Customer by Name">
+    <button onclick="searchCustomer()">Search</button>
+
+    <input type="number" id="bulkAmount" placeholder="Bulk Amount">
+    <button onclick="bulkCredit()">Add Credit to All</button>
+    <button onclick="bulkPaid()">Add Paid to All</button>
 
     <div id="customerList"></div>
 
@@ -112,6 +117,7 @@ import {
   update
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+/* ---------- FIREBASE CONFIG ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
   authDomain: "credit-sass.firebaseapp.com",
@@ -129,6 +135,7 @@ const database = getDatabase(app);
 
 let currentUser = null;
 
+/* ---------- AUTH FUNCTIONS ---------- */
 window.register = function() {
   createUserWithEmailAndPassword(auth, email.value, password.value)
     .then(() => alert("Registered Successfully"))
@@ -144,20 +151,22 @@ window.logout = function() {
   signOut(auth);
 }
 
+/* ---------- AUTH STATE ---------- */
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    document.getElementById("authSection").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
+    authSection.style.display = "none";
+    dashboard.style.display = "block";
     loadCustomers();
   } else {
-    document.getElementById("authSection").style.display = "block";
-    document.getElementById("dashboard").style.display = "none";
+    authSection.style.display = "block";
+    dashboard.style.display = "none";
   }
 });
 
+/* ---------- ADD CUSTOMER ---------- */
 window.addCustomer = function() {
-  if (!customerName.value) return alert("Enter Name");
+  if (!customerName.value) return alert("Enter Customer Name");
 
   push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
     name: customerName.value,
@@ -169,14 +178,13 @@ window.addCustomer = function() {
   customerName.value = "";
 }
 
+/* ---------- LOAD CUSTOMERS ---------- */
 function loadCustomers() {
   const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
 
   onValue(customerRef, (snapshot) => {
-
     const data = snapshot.val();
-    const list = document.getElementById("customerList");
-    list.innerHTML = "";
+    customerList.innerHTML = "";
 
     if (!data) return;
 
@@ -186,7 +194,6 @@ function loadCustomers() {
 
       const card = document.createElement("div");
       card.className = "card";
-
       card.innerHTML = `
         <h3>${c.name}</h3>
         <div class="balance">Balance: ₹${balance}</div>
@@ -196,22 +203,21 @@ function loadCustomers() {
         <button onclick="addCredit('${id}')">Add Credit</button>
         <button onclick="addPaid('${id}')">Add Payment</button>
       `;
-
-      list.appendChild(card);
+      customerList.appendChild(card);
     }
-
   });
 }
 
+/* ---------- INDIVIDUAL CREDIT / PAID ---------- */
 window.addCredit = function(id) {
   const amount = parseInt(document.getElementById("amt_" + id).value);
   if (!amount) return alert("Enter Amount");
 
-  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
 
-  onValue(customerRef, (snapshot) => {
-    const c = snapshot.val();
-    update(customerRef, {
+  onValue(custRef, (snap) => {
+    const c = snap.val();
+    update(custRef, {
       totalCredit: (c.totalCredit || 0) + amount,
       lastPaymentDate: new Date().toLocaleDateString()
     });
@@ -222,15 +228,65 @@ window.addPaid = function(id) {
   const amount = parseInt(document.getElementById("amt_" + id).value);
   if (!amount) return alert("Enter Amount");
 
-  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
 
-  onValue(customerRef, (snapshot) => {
-    const c = snapshot.val();
-    update(customerRef, {
+  onValue(custRef, (snap) => {
+    const c = snap.val();
+    update(custRef, {
       totalPaid: (c.totalPaid || 0) + amount,
       lastPaymentDate: new Date().toLocaleDateString()
     });
   }, { onlyOnce: true });
+}
+
+/* ---------- SEARCH CUSTOMER ---------- */
+window.searchCustomer = function() {
+  const searchText = searchInput.value.toLowerCase();
+  const items = customerList.getElementsByClassName("card");
+
+  for (let i = 0; i < items.length; i++) {
+    const name = items[i].querySelector("h3").innerText.toLowerCase();
+    items[i].style.display = name.includes(searchText) ? "" : "none";
+  }
+}
+
+/* ---------- BULK PAYMENT ---------- */
+window.bulkCredit = function() {
+  const amt = parseInt(bulkAmount.value);
+  if (!amt) return alert("Enter Bulk Amount");
+
+  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+
+  onValue(custRef, (snap) => {
+    const data = snap.val();
+    for (let id in data) {
+      update(ref(database, 'Users/' + currentUser.uid + '/Customers/' + id), {
+        totalCredit: (data[id].totalCredit || 0) + amt,
+        lastPaymentDate: new Date().toLocaleDateString()
+      });
+    }
+  }, { onlyOnce: true });
+
+  bulkAmount.value = "";
+}
+
+window.bulkPaid = function() {
+  const amt = parseInt(bulkAmount.value);
+  if (!amt) return alert("Enter Bulk Amount");
+
+  const custRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+
+  onValue(custRef, (snap) => {
+    const data = snap.val();
+    for (let id in data) {
+      update(ref(database, 'Users/' + currentUser.uid + '/Customers/' + id), {
+        totalPaid: (data[id].totalPaid || 0) + amt,
+        lastPaymentDate: new Date().toLocaleDateString()
+      });
+    }
+  }, { onlyOnce: true });
+
+  bulkAmount.value = "";
 }
 
 </script>
