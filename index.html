@@ -17,12 +17,28 @@
   <p id="message"></p>
 </div>
 
-<!-- DASHBOARD SECTION -->
+<!-- DASHBOARD -->
 <div id="dashboard" style="display:none;">
+
   <h3>Add Customer</h3>
-  <input type="text" id="custName" placeholder="Customer Name"><br><br>
-  <input type="text" id="custPhone" placeholder="Phone"><br><br>
+  <input type="text" id="custName" placeholder="Customer Name">
+  <input type="text" id="custPhone" placeholder="Phone">
   <button id="addCustomerBtn">Add Customer</button>
+
+  <hr>
+
+  <h3>Search Customer</h3>
+  <input type="text" id="searchInput" placeholder="Search by Name">
+  <button id="searchBtn">Search</button>
+
+  <hr>
+
+  <h3>Bulk Payment (All Customers)</h3>
+  <input type="number" id="bulkAmount" placeholder="Amount">
+  <button id="bulkCreditBtn">Add Credit to All</button>
+  <button id="bulkDebitBtn">Add Paid to All</button>
+
+  <hr>
 
   <h3>Customer List</h3>
   <ul id="customerList"></ul>
@@ -45,7 +61,8 @@ import {
   getDatabase, 
   ref, 
   push, 
-  onValue 
+  onValue,
+  update
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -64,62 +81,45 @@ const database = getDatabase(app);
 
 let currentUser = null;
 
-/* ---------- REGISTER ---------- */
-document.getElementById("registerBtn").addEventListener("click", () => {
+/* ---------- AUTH ---------- */
+
+registerBtn.onclick = () => {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
   createUserWithEmailAndPassword(auth, email, password)
-    .then(() => {
-      document.getElementById("message").innerText = "Registered Successfully!";
-    })
-    .catch(error => {
-      document.getElementById("message").innerText = error.message;
-    });
-});
+    .catch(error => alert(error.message));
+};
 
-/* ---------- LOGIN ---------- */
-document.getElementById("loginBtn").addEventListener("click", () => {
+loginBtn.onclick = () => {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
   signInWithEmailAndPassword(auth, email, password)
-    .then(() => {
-      document.getElementById("message").innerText = "Login Success!";
-    })
-    .catch(error => {
-      document.getElementById("message").innerText = error.message;
-    });
-});
+    .catch(error => alert(error.message));
+};
 
-/* ---------- LOGOUT ---------- */
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  signOut(auth);
-});
+logoutBtn.onclick = () => signOut(auth);
 
-/* ---------- AUTH STATE ---------- */
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    document.getElementById("loginSection").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
+    loginSection.style.display = "none";
+    dashboard.style.display = "block";
     loadCustomers();
   } else {
-    document.getElementById("loginSection").style.display = "block";
-    document.getElementById("dashboard").style.display = "none";
+    loginSection.style.display = "block";
+    dashboard.style.display = "none";
   }
 });
 
 /* ---------- ADD CUSTOMER ---------- */
-document.getElementById("addCustomerBtn").addEventListener("click", () => {
 
-  const name = document.getElementById("custName").value;
-  const phone = document.getElementById("custPhone").value;
+addCustomerBtn.onclick = () => {
+  const name = custName.value;
+  const phone = custPhone.value;
 
-  if (!name) {
-    alert("Customer name required");
-    return;
-  }
+  if (!name) return alert("Name required");
 
   push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
     name: name,
@@ -129,38 +129,120 @@ document.getElementById("addCustomerBtn").addEventListener("click", () => {
     lastPaymentDate: "-"
   });
 
-  document.getElementById("custName").value = "";
-  document.getElementById("custPhone").value = "";
-});
+  custName.value = "";
+  custPhone.value = "";
+};
 
 /* ---------- LOAD CUSTOMERS ---------- */
-function loadCustomers() {
 
+function loadCustomers() {
   const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
 
   onValue(customerRef, (snapshot) => {
-
     const data = snapshot.val();
-    const list = document.getElementById("customerList");
-    list.innerHTML = "";
+    customerList.innerHTML = "";
 
     if (!data) return;
 
     for (let id in data) {
-      const customer = data[id];
-      const balance = customer.totalCredit - customer.totalPaid;
+      const c = data[id];
+      const balance = (c.totalCredit || 0) - (c.totalPaid || 0);
 
       const li = document.createElement("li");
-      li.innerText = 
-        customer.name + 
-        " | Balance: ₹" + balance + 
-        " | Last Payment: " + customer.lastPaymentDate;
-
-      list.appendChild(li);
+      li.innerHTML = `
+        <b>${c.name}</b> |
+        Balance: ₹${balance} |
+        Last Payment: ${c.lastPaymentDate}
+        <br>
+        <input type="number" id="amt_${id}" placeholder="Amount">
+        <button onclick="addCredit('${id}')">Credit</button>
+        <button onclick="addDebit('${id}')">Paid</button>
+        <hr>
+      `;
+      customerList.appendChild(li);
     }
-
   });
 }
+
+/* ---------- INDIVIDUAL PAYMENT ---------- */
+
+window.addCredit = function(id) {
+  const amount = parseInt(document.getElementById("amt_" + id).value);
+  if (!amount) return alert("Enter amount");
+
+  const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+
+  onValue(refPath, (snap) => {
+    const c = snap.val();
+    update(refPath, {
+      totalCredit: (c.totalCredit || 0) + amount,
+      lastPaymentDate: new Date().toLocaleDateString()
+    });
+  }, { onlyOnce: true });
+};
+
+window.addDebit = function(id) {
+  const amount = parseInt(document.getElementById("amt_" + id).value);
+  if (!amount) return alert("Enter amount");
+
+  const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+
+  onValue(refPath, (snap) => {
+    const c = snap.val();
+    update(refPath, {
+      totalPaid: (c.totalPaid || 0) + amount,
+      lastPaymentDate: new Date().toLocaleDateString()
+    });
+  }, { onlyOnce: true });
+};
+
+/* ---------- BULK PAYMENT ---------- */
+
+bulkCreditBtn.onclick = () => bulkUpdate("credit");
+bulkDebitBtn.onclick = () => bulkUpdate("debit");
+
+function bulkUpdate(type) {
+  const amount = parseInt(bulkAmount.value);
+  if (!amount) return alert("Enter bulk amount");
+
+  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+
+  onValue(customerRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    for (let id in data) {
+      const c = data[id];
+      const refPath = ref(database, 'Users/' + currentUser.uid + '/Customers/' + id);
+
+      if (type === "credit") {
+        update(refPath, {
+          totalCredit: (c.totalCredit || 0) + amount,
+          lastPaymentDate: new Date().toLocaleDateString()
+        });
+      } else {
+        update(refPath, {
+          totalPaid: (c.totalPaid || 0) + amount,
+          lastPaymentDate: new Date().toLocaleDateString()
+        });
+      }
+    }
+
+    bulkAmount.value = "";
+  }, { onlyOnce: true });
+}
+
+/* ---------- SEARCH ---------- */
+
+searchBtn.onclick = () => {
+  const text = searchInput.value.toLowerCase();
+  const items = customerList.getElementsByTagName("li");
+
+  for (let i = 0; i < items.length; i++) {
+    const name = items[i].innerText.toLowerCase();
+    items[i].style.display = name.includes(text) ? "" : "none";
+  }
+};
 
 </script>
 
