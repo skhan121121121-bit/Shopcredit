@@ -8,120 +8,160 @@
 
 <h2>Credit App</h2>
 
-<div id="loginDiv">
+<!-- LOGIN SECTION -->
+<div id="loginSection">
   <input type="email" id="email" placeholder="Email"><br><br>
-  <input type="password" id="password" placeholder="Password"><br><br>
-  <button onclick="register()">Register</button>
-  <button onclick="login()">Login</button>
+  <input type="password" id="password" placeholder="Password (min 6 char)"><br><br>
+  <button id="registerBtn">Register</button>
+  <button id="loginBtn">Login</button>
   <p id="message"></p>
 </div>
 
+<!-- DASHBOARD SECTION -->
 <div id="dashboard" style="display:none;">
   <h3>Add Customer</h3>
   <input type="text" id="custName" placeholder="Customer Name"><br><br>
   <input type="text" id="custPhone" placeholder="Phone"><br><br>
-  <button onclick="addCustomer()">Add Customer</button>
+  <button id="addCustomerBtn">Add Customer</button>
 
   <h3>Customer List</h3>
   <ul id="customerList"></ul>
 
-  <button onclick="logout()">Logout</button>
+  <button id="logoutBtn">Logout</button>
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-  import { getDatabase, ref, set, push, onValue }
-  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut,
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
-    authDomain: "credit-sass.firebaseapp.com",
-    databaseURL: "https://credit-sass-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "credit-sass",
-    storageBucket: "credit-sass.firebasestorage.app",
-    messagingSenderId: "820767773664",
-    appId: "1:820767773664:web:4eb034cdaaea029fc95185"
-  };
+import { 
+  getDatabase, 
+  ref, 
+  push, 
+  onValue 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const database = getDatabase(app);
+const firebaseConfig = {
+  apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
+  authDomain: "credit-sass.firebaseapp.com",
+  databaseURL: "https://credit-sass-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "credit-sass",
+  storageBucket: "credit-sass.firebasestorage.app",
+  messagingSenderId: "820767773664",
+  appId: "1:820767773664:web:4eb034cdaaea029fc95185"
+};
 
-  let currentUser;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
 
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUser = user;
-      document.getElementById("loginDiv").style.display = "none";
-      document.getElementById("dashboard").style.display = "block";
-      loadCustomers();
-    } else {
-      document.getElementById("loginDiv").style.display = "block";
-      document.getElementById("dashboard").style.display = "none";
-    }
+let currentUser = null;
+
+/* ---------- REGISTER ---------- */
+document.getElementById("registerBtn").addEventListener("click", () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  createUserWithEmailAndPassword(auth, email, password)
+    .then(() => {
+      document.getElementById("message").innerText = "Registered Successfully!";
+    })
+    .catch(error => {
+      document.getElementById("message").innerText = error.message;
+    });
+});
+
+/* ---------- LOGIN ---------- */
+document.getElementById("loginBtn").addEventListener("click", () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  signInWithEmailAndPassword(auth, email, password)
+    .then(() => {
+      document.getElementById("message").innerText = "Login Success!";
+    })
+    .catch(error => {
+      document.getElementById("message").innerText = error.message;
+    });
+});
+
+/* ---------- LOGOUT ---------- */
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  signOut(auth);
+});
+
+/* ---------- AUTH STATE ---------- */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    loadCustomers();
+  } else {
+    document.getElementById("loginSection").style.display = "block";
+    document.getElementById("dashboard").style.display = "none";
+  }
+});
+
+/* ---------- ADD CUSTOMER ---------- */
+document.getElementById("addCustomerBtn").addEventListener("click", () => {
+
+  const name = document.getElementById("custName").value;
+  const phone = document.getElementById("custPhone").value;
+
+  if (!name) {
+    alert("Customer name required");
+    return;
+  }
+
+  push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
+    name: name,
+    phone: phone,
+    totalCredit: 0,
+    totalPaid: 0,
+    lastPaymentDate: "-"
   });
 
-  window.register = function () {
-    const email = email.value;
-    const password = password.value;
+  document.getElementById("custName").value = "";
+  document.getElementById("custPhone").value = "";
+});
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .catch((error) => alert(error.message));
-  }
+/* ---------- LOAD CUSTOMERS ---------- */
+function loadCustomers() {
 
-  window.login = function () {
-    const email = email.value;
-    const password = password.value;
+  const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
 
-    signInWithEmailAndPassword(auth, email, password)
-      .catch((error) => alert(error.message));
-  }
+  onValue(customerRef, (snapshot) => {
 
-  window.logout = function () {
-    signOut(auth);
-  }
+    const data = snapshot.val();
+    const list = document.getElementById("customerList");
+    list.innerHTML = "";
 
-  window.addCustomer = function () {
-    const name = custName.value;
-    const phone = custPhone.value;
+    if (!data) return;
 
-    push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
-      name: name,
-      phone: phone,
-      totalCredit: 0,
-      totalPaid: 0,
-      lastPaymentDate: "-"
-    });
+    for (let id in data) {
+      const customer = data[id];
+      const balance = customer.totalCredit - customer.totalPaid;
 
-    custName.value = "";
-    custPhone.value = "";
-  }
+      const li = document.createElement("li");
+      li.innerText = 
+        customer.name + 
+        " | Balance: ₹" + balance + 
+        " | Last Payment: " + customer.lastPaymentDate;
 
-  function loadCustomers() {
-    const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
+      list.appendChild(li);
+    }
 
-    onValue(customerRef, (snapshot) => {
-      const data = snapshot.val();
-      const list = document.getElementById("customerList");
-      list.innerHTML = "";
+  });
+}
 
-      for (let id in data) {
-        const customer = data[id];
-        const balance = customer.totalCredit - customer.totalPaid;
-
-        list.innerHTML += `
-          <li>
-            ${customer.name} |
-            Balance: ₹${balance} |
-            Last Payment: ${customer.lastPaymentDate}
-          </li>
-        `;
-      }
-    });
-  }
 </script>
 
 </body>
