@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Credit Manager</title>
+  <title>Credit Sass</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
-      font-family: Arial;
-      background: #f4f6f9;
       margin: 0;
-      padding: 0;
+      font-family: Arial;
+      background: #f2f4f8;
     }
 
     .container {
@@ -20,14 +19,13 @@
 
     h2 {
       text-align: center;
-      color: #333;
     }
 
     input {
       width: 100%;
       padding: 10px;
       margin-top: 10px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #ccc;
     }
 
@@ -35,8 +33,8 @@
       width: 100%;
       padding: 10px;
       margin-top: 10px;
+      border-radius: 8px;
       border: none;
-      border-radius: 6px;
       background: #4CAF50;
       color: white;
       font-weight: bold;
@@ -51,17 +49,15 @@
       background: white;
       padding: 15px;
       margin-top: 15px;
-      border-radius: 10px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
 
     .balance {
-      font-weight: bold;
       font-size: 18px;
+      font-weight: bold;
+      margin: 5px 0;
     }
-
-    .paid { color: green; }
-    .credit { color: red; }
 
     .logout {
       background: red;
@@ -76,7 +72,7 @@
 
 <div class="container">
 
-  <div id="auth">
+  <div id="authSection">
     <h2>Login / Register</h2>
     <input type="email" id="email" placeholder="Email">
     <input type="password" id="password" placeholder="Password">
@@ -85,12 +81,12 @@
   </div>
 
   <div id="dashboard">
-    <h2>Credit Manager</h2>
+    <h2>Credit Sass</h2>
 
     <input type="text" id="customerName" placeholder="Customer Name">
     <button onclick="addCustomer()">Add Customer</button>
 
-    <ul id="customerList"></ul>
+    <div id="customerList"></div>
 
     <button class="logout" onclick="logout()">Logout</button>
   </div>
@@ -123,7 +119,8 @@ const firebaseConfig = {
   projectId: "credit-sass",
   storageBucket: "credit-sass.firebasestorage.app",
   messagingSenderId: "820767773664",
-  appId: "1:820767773664:web:4eb034cdaaea029fc95185"
+  appId: "1:820767773664:web:4eb034cdaaea029fc95185",
+  measurementId: "G-0MGF07JQVE"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -133,19 +130,13 @@ const database = getDatabase(app);
 let currentUser = null;
 
 window.register = function() {
-  const email = email.value;
-  const password = password.value;
-
-  createUserWithEmailAndPassword(auth, email, password)
+  createUserWithEmailAndPassword(auth, email.value, password.value)
     .then(() => alert("Registered Successfully"))
     .catch(err => alert(err.message));
 }
 
 window.login = function() {
-  const email = email.value;
-  const password = password.value;
-
-  signInWithEmailAndPassword(auth, email, password)
+  signInWithEmailAndPassword(auth, email.value, password.value)
     .catch(err => alert(err.message));
 }
 
@@ -156,21 +147,20 @@ window.logout = function() {
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    auth.style.display = "none";
-    dashboard.style.display = "block";
+    document.getElementById("authSection").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
     loadCustomers();
   } else {
-    auth.style.display = "block";
-    dashboard.style.display = "none";
+    document.getElementById("authSection").style.display = "block";
+    document.getElementById("dashboard").style.display = "none";
   }
 });
 
 window.addCustomer = function() {
-  const name = customerName.value;
-  if (!name) return alert("Enter Name");
+  if (!customerName.value) return alert("Enter Name");
 
   push(ref(database, 'Users/' + currentUser.uid + '/Customers'), {
-    name: name,
+    name: customerName.value,
     totalCredit: 0,
     totalPaid: 0,
     lastPaymentDate: "-"
@@ -180,7 +170,6 @@ window.addCustomer = function() {
 }
 
 function loadCustomers() {
-
   const customerRef = ref(database, 'Users/' + currentUser.uid + '/Customers');
 
   onValue(customerRef, (snapshot) => {
@@ -195,10 +184,10 @@ function loadCustomers() {
       const c = data[id];
       const balance = (c.totalCredit || 0) - (c.totalPaid || 0);
 
-      const li = document.createElement("div");
-      li.className = "card";
+      const card = document.createElement("div");
+      card.className = "card";
 
-      li.innerHTML = `
+      card.innerHTML = `
         <h3>${c.name}</h3>
         <div class="balance">Balance: ₹${balance}</div>
         <div>Last Payment: ${c.lastPaymentDate}</div>
@@ -208,7 +197,7 @@ function loadCustomers() {
         <button onclick="addPaid('${id}')">Add Payment</button>
       `;
 
-      list.appendChild(li);
+      list.appendChild(card);
     }
 
   });
