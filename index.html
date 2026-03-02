@@ -1,212 +1,176 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Credit Sass Pro</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Shop Management</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
   <style>
-    body{font-family:Arial;margin:0;background:#f2f4f8}
-    .box{max-width:500px;margin:auto;padding:20px}
-    input,button{width:100%;padding:10px;margin-top:10px}
-    button{background:#4CAF50;color:white;border:none}
-    .card{background:white;padding:10px;margin-top:10px;border-radius:10px}
-    .logout{background:red}
+    body{font-family:Arial;padding:20px}
+    .hidden{display:none}
+    button{margin:5px;padding:6px 12px}
+    input,select{margin:5px;padding:6px}
+    .box{border:1px solid #ccc;padding:15px;margin-top:15px}
   </style>
 </head>
 <body>
 
-<div class="box">
+<h2>Shop Management System</h2>
 
-<!-- AUTH -->
-<div id="authSection">
-  <h2>Login / Register</h2>
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="register()">Register</button>
+<!-- LOGIN -->
+<div id="loginPage" class="box">
+  <h3>Login</h3>
+  <input type="email" id="email" placeholder="Email"><br>
+  <input type="password" id="password" placeholder="Password"><br>
   <button onclick="login()">Login</button>
 </div>
 
-<!-- SUBSCRIPTION -->
-<div id="subscriptionPage" style="display:none;text-align:center">
-  <h2>Subscription Required</h2>
-  <p>₹99 / Month</p>
-  <p>Pay UPI: abu733207@icici</p>
-  <button onclick="contactOwner()">I Have Paid</button>
-</div>
-
 <!-- DASHBOARD -->
-<div id="dashboard" style="display:none">
-  <h2>Credit Dashboard</h2>
+<div id="dashboard" class="hidden">
 
-  <input type="text" id="customerName" placeholder="Customer Name">
-  <button onclick="addCustomer()">Add Customer</button>
+  <h3>Shop Dashboard</h3>
 
-  <div id="customerList"></div>
+  <!-- GROUP ADD -->
+  <div class="box">
+    <h4>Add Group</h4>
+    <input type="text" id="groupName" placeholder="Group Name">
+    <button onclick="addGroup()">Add Group</button>
+  </div>
 
-  <button class="logout" onclick="logout()">Logout</button>
-</div>
+  <!-- CUSTOMER ADD -->
+  <div class="box">
+    <h4>Add Customer</h4>
+    <input type="text" id="custName" placeholder="Customer Name">
+    <input type="text" id="custMobile" placeholder="Mobile">
+    <select id="custGroup"></select>
+    <button onclick="addCustomer()">Add Customer</button>
+  </div>
+
+  <!-- BILL CREATE -->
+  <div class="box">
+    <h4>Create Bill</h4>
+    <select id="billCustomer"></select><br>
+    <input type="number" id="billAmount" placeholder="Total Amount">
+    <input type="number" id="paidAmount" placeholder="Paid Amount">
+    <button onclick="createBill()">Generate Bill</button>
+  </div>
+
+  <div id="output"></div>
 
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, push, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBjKRBcESWqw17af_TQ8h5RtRz4pRFvcvs",
   authDomain: "credit-sass.firebaseapp.com",
   databaseURL: "https://credit-sass-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "credit-sass",
+  projectId: "YOUR_PROJECT_ID",
   storageBucket: "credit-sass.firebasestorage.app",
   messagingSenderId: "820767773664",
-  appId: "1:820767773664:web:4eb034cdaaea029fc95185"
+  appId: "1:820767773664:web:4eb034cdaaea029fc9518"
 };
 
 const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 const auth = getAuth(app);
-const database = getDatabase(app);
 
-let currentUser = null;
+let currentShop = "";
 
-window.register = () => {
-  createUserWithEmailAndPassword(auth,email.value,password.value)
-  .then((userCredential)=>{
-     const uid = userCredential.user.uid;
-     set(ref(database,'Users/'+uid+'/subscription'),{
-        active:false,
-        expiry:""
-     });
-     alert("Registered Successfully");
+window.login = function(){
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+
+  signInWithEmailAndPassword(auth,email,pass)
+  .then(user=>{
+    currentShop = user.user.uid;
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+    loadGroups();
+    loadCustomers();
   })
-  .catch(err=>alert(err.message));
+  .catch(()=>alert("Login Failed"));
 }
 
-window.login = () => {
-  signInWithEmailAndPassword(auth,email.value,password.value)
-  .catch(err=>alert(err.message));
-}
-
-window.logout = () => signOut(auth);
-
-onAuthStateChanged(auth,user=>{
-  if(user){
-    currentUser=user;
-
-    const subRef = ref(database,'Users/'+user.uid+'/subscription');
-    onValue(subRef,snap=>{
-       const sub = snap.val();
-
-       if(!sub || sub.active == false){
-          showSubscriptionPage();
-       } else {
-          const today = new Date();
-          const expiryDate = new Date(sub.expiry);
-
-          if(today > expiryDate){
-             update(subRef,{active:false});
-             showSubscriptionPage();
-          } else {
-             authSection.style.display="none";
-             subscriptionPage.style.display="none";
-             dashboard.style.display="block";
-             loadCustomers();
-          }
-       }
-    },{onlyOnce:true});
-  }
-  else{
-    authSection.style.display="block";
-    dashboard.style.display="none";
-    subscriptionPage.style.display="none";
-  }
-});
-
-function showSubscriptionPage(){
-  authSection.style.display="none";
-  dashboard.style.display="none";
-  subscriptionPage.style.display="block";
-}
-
-window.contactOwner = ()=>{
-  const msg = "I have paid ₹99 subscription. Please activate my account.";
-  const url = "https://wa.me/918116410029?text="+encodeURIComponent(msg);
-  window.open(url,"_blank");
-}
-
-window.addCustomer = ()=>{
-  if(!customerName.value) return;
-  push(ref(database,'Users/'+currentUser.uid+'/Customers'),{
-    name:customerName.value,
-    totalCredit:0,
-    totalPaid:0,
-    lastPaymentDate:"-"
+window.addGroup = function(){
+  let g = document.getElementById("groupName").value;
+  push(ref(db,"shops/"+currentShop+"/groups"),{
+    name:g
   });
-  customerName.value="";
+  alert("Group Added");
+  loadGroups();
 }
 
-function loadCustomers(){
-  const customerRef = ref(database,'Users/'+currentUser.uid+'/Customers');
-  onValue(customerRef,snap=>{
-    const data = snap.val();
-    customerList.innerHTML="";
-    if(!data) return;
+async function loadGroups(){
+  let snapshot = await get(ref(db,"shops/"+currentShop+"/groups"));
+  let select = document.getElementById("custGroup");
+  select.innerHTML="";
+  if(snapshot.exists()){
+    snapshot.forEach(child=>{
+      let opt=document.createElement("option");
+      opt.value=child.key;
+      opt.textContent=child.val().name;
+      select.appendChild(opt);
+    });
+  }
+}
 
-    for(let id in data){
-      const c=data[id];
-      const balance=(c.totalCredit||0)-(c.totalPaid||0);
+window.addCustomer = function(){
+  let name=document.getElementById("custName").value;
+  let mobile=document.getElementById("custMobile").value;
+  let group=document.getElementById("custGroup").value;
 
-      const card=document.createElement("div");
-      card.className="card";
-      card.innerHTML=`
-        <h3>${c.name}</h3>
-        <p>Balance: ₹${balance}</p>
-        <input type="number" id="amt_${id}" placeholder="Amount">
-        <button onclick="addCredit('${id}')">Credit</button>
-        <button onclick="addPaid('${id}')">Paid</button>
-        <button onclick="sendWA('${id}')">WhatsApp</button>
-      `;
-      customerList.appendChild(card);
-    }
+  push(ref(db,"shops/"+currentShop+"/customers"),{
+    name:name,
+    mobile:mobile,
+    group:group
   });
+
+  alert("Customer Added");
+  loadCustomers();
 }
 
-window.addCredit=id=>{
-  const amt=parseInt(document.getElementById("amt_"+id).value);
-  if(!amt) return;
-  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
-  onValue(custRef,snap=>{
-    const c=snap.val();
-    update(custRef,{
-      totalCredit:(c.totalCredit||0)+amt,
-      lastPaymentDate:new Date().toLocaleDateString()
+async function loadCustomers(){
+  let snapshot = await get(ref(db,"shops/"+currentShop+"/customers"));
+  let select=document.getElementById("billCustomer");
+  select.innerHTML="";
+  if(snapshot.exists()){
+    snapshot.forEach(child=>{
+      let opt=document.createElement("option");
+      opt.value=child.key;
+      opt.textContent=child.val().name;
+      select.appendChild(opt);
     });
-  },{onlyOnce:true});
+  }
 }
 
-window.addPaid=id=>{
-  const amt=parseInt(document.getElementById("amt_"+id).value);
-  if(!amt) return;
-  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
-  onValue(custRef,snap=>{
-    const c=snap.val();
-    update(custRef,{
-      totalPaid:(c.totalPaid||0)+amt,
-      lastPaymentDate:new Date().toLocaleDateString()
-    });
-  },{onlyOnce:true});
-}
+window.createBill = async function(){
+  let custId=document.getElementById("billCustomer").value;
+  let amount=parseFloat(document.getElementById("billAmount").value);
+  let paid=parseFloat(document.getElementById("paidAmount").value);
+  let due=amount-paid;
 
-window.sendWA=id=>{
-  const custRef=ref(database,'Users/'+currentUser.uid+'/Customers/'+id);
-  onValue(custRef,snap=>{
-    const c=snap.val();
-    const balance=(c.totalCredit||0)-(c.totalPaid||0);
-    if(balance>0){
-      const msg=`Hello ${c.name}, your pending balance is ₹${balance}`;
-      window.open("https://wa.me/?text="+encodeURIComponent(msg));
-    }
-  },{onlyOnce:true});
+  push(ref(db,"shops/"+currentShop+"/bills"),{
+    customer:custId,
+    total:amount,
+    paid:paid,
+    due:due,
+    date:new Date().toISOString()
+  });
+
+  alert("Bill Generated");
+
+  // WhatsApp reminder
+  let custSnap = await get(ref(db,"shops/"+currentShop+"/customers/"+custId));
+  let mobile=custSnap.val().mobile;
+
+  let msg=`আপনার ${due} টাকা বাকি আছে। দয়া করে পরিশোধ করুন।`;
+  window.open("https://wa.me/91"+mobile+"?text="+encodeURIComponent(msg));
 }
 
 </script>
